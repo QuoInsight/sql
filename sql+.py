@@ -10,22 +10,16 @@ def printV(v) :
   print( s )
 #
 
-src = ( sys.argv[1] if (len(sys.argv)>1) else "" );  # [ternary operator] value_when_true if condition else value_when_false
-if (src == "/?") :
-  print("usage: sql+.py [source [connection_string]]");
-  quit();
-#
-
 #----------------------------------------------------------------------#
 
 def getData(src) :
+  _thisScript_ = sys.argv[0]  ## __file__
   fn = src;  txt = "";
-  if (fn is None or len(fn)== 0) :
-    fn = __file__;
+  if (fn is None or len(fn)== 0) : fn = _thisScript_
   with open(fn, 'r') as f:
-    if (fn != __file__) : 
+    if (fn != _thisScript_) : 
       txt = f.read()
-      # if (fn == __file__) :
+      # if (fn == _thisScript_) :
       #   p1 = txt.find('\n#__DATA__')
       #   if (p1 > 0) :
       #     p1 = txt.find('\n', p1+1)
@@ -45,7 +39,7 @@ def getData(src) :
           txt += ln[1:]
         #
       #
-      #import os;  fn = os.path.abspath(__file__);
+      #import os;  fn = os.path.abspath(_thisScript_);
     #
   #
   return [fn, txt];
@@ -92,6 +86,28 @@ def getConnectionString(argv, idx) :
     )
   #
   return ""
+#
+
+#----------------------------------------------------------------------#
+
+def connectDB(connection_string) :
+  if connection_string.startswith("[sqlite3]") :
+    import sqlite3;  cn = sqlite3.connect(connection_string[9:])
+    #print(sqlite3.version_info)
+  elif connection_string.startswith("postgresql") :
+    ## python -m pip install --upgrade psycopg2
+    import psycopg2;  cn = psycopg2.connect(connection_string)
+    #print(cn.dsn)
+  elif connection_string.startswith("Driver=") :
+    ## python -m pip install --upgrade pyodbc
+    import pyodbc;  cn = pyodbc.connect(connection_string)
+    #print( pyodbc.version )
+  else :
+    ## python -m pip install --upgrade cx_Oracle ## http://cx-oracle.readthedocs.io/en/latest/installation.html
+    import cx_Oracle;  cn = cx_Oracle.connect(connection_string);
+    #print(cn.version)
+  #
+  return cn
 #
 
 #----------------------------------------------------------------------#
@@ -194,7 +210,6 @@ def _sendMail(maillist, cclist, msgsubj, msgbody, contentType='plain', files=Non
   msg = email.mime.multipart.MIMEMultipart()
   msg['From'] = os.environ.get('COMPUTERNAME') + "@gmail.com"  ##os.getenv('COMPUTERNAME', "")
   msg['To'] = maillist;  msg['Cc'] = cclist
-  msg['Bcc'] = "kamleong.lai@gmail.com"
   msg['Date'] = email.utils.formatdate(localtime=True)
   msg['Subject'] = msgsubj
 
@@ -223,7 +238,7 @@ def _sendMail(maillist, cclist, msgsubj, msgbody, contentType='plain', files=Non
 
 def sendMail(src, headObj, headTxt, dataTxt, footTxt, contentType='plain', attachment=None) :
   newLine = "<br/>" if (contentType=='html') else "\n"
-  import os;  footTxt +=  newLine + newLine + "[source: \\\\" + os.environ.get('COMPUTERNAME') + " \"" + __file__ + "\"]"
+  import os;  footTxt +=  newLine + newLine + "[source: \\\\" + os.environ.get('COMPUTERNAME') + " \"" + os.path.basename(sys.argv[0]) + "\"]"
   msgbody = headTxt + newLine + newLine + dataTxt + newLine + footTxt
 
   msgsubj = ""
@@ -247,7 +262,7 @@ import google.oauth2.service_account ## replace oauth2client with google-auth
 def getGoogleCredentials():
   svcAcct = "QuoInsightSvc@developer.gserviceaccount.com"
   jsonkeyfile = r"D:\OAuth2\QuoInsightSvc.json"
-  scopes = ["https://www.googles.com/auth/drive"]
+  scopes = ["https://www.googleapis.com/auth/drive"]
 
   credentials = google.oauth2.service_account.Credentials.from_service_account_file(
     jsonkeyfile, scopes=scopes
@@ -348,144 +363,153 @@ def exportRs2GoogleSheets(googleSheetsSvc, fileId, gid, target, action, cur) :
   return insertRs2GoogleSheets(googleSheetsSvc, fileId, target, cur, includeHeaders, insertDataOption)
 #
 
+def getGoogleSheetsTarget(actionType, targetUrl) :
+  googleSheetsSvc = None;  fileId = "";  gid = 0;  target = "";
+  if actionType.endswith("GoogleSheets") :
+    if ( targetUrl.startswith('https://docs.google.com/spreadsheets/') ) :
+      m = targetUrl.split("/");  m9=m[-1]
+      if ("#" in m9) or ("=" in m9) :
+        fileId = m[-2]
+        p = m9.find("gid=")
+        if (p >= 0) :
+          gid = int(m9[p+4:])
+        #
+      elif (m9=="") :
+        fileId = m[-2]
+      else : 
+        fileId = m9
+      #
+    else :
+      printV(
+        "Unsupported targetUrl:\n" + targetUrl + "\n\n"
+        + ">targetUrl must be in the below format:\n"
+        + "> https://docs.google.com/spreadsheets/...\n"
+      );
+      quit();
+    #
+
+    credentials = getGoogleCredentials()
+    googleSheetsSvc = connectGoogleSheets(credentials)
+    target = getWorkSheetTitle(googleSheetsSvc, fileId, gid)
+    printV(target)
+
+    if (target is None or len(target) < 1) :
+      print("Invalid target!")
+      quit()
+    #
+  #
+  return (googleSheetsSvc, fileId, gid, target)
+#
+
+#----------------------------------------------------------------------#
+
+def takeAction(connection_string, sql, src, headObj, headTxt, footTxt) :
+  actionType = headObj.get('action', defAction)
+  targetUrl = headObj.get('targetUrl', defTarget)
+  targetOption = headObj.get('targetOption', defOption)
+
+  googleSheetsSvc = None;  fileId = "";  gid = 0;  target = "";
+  if actionType.endswith("GoogleSheets") :
+    (googleSheetsSvc, fileId, gid, target) = getGoogleSheetsTarget(actionType, targetUrl)
+  #
+
+  cn = connectDB(connection_string);  cur = cn.cursor();  cur.execute(sql)
+
+  if ( actionType=="stdout" ) :
+
+    printV( rs2txt(cur, cur.fetchall(), -1) )
+
+  elif ( actionType.endswith("GoogleSheets") ) :
+
+    printV( exportRs2GoogleSheets(googleSheetsSvc, fileId, gid, target, targetOption, cur) )
+
+    if ( actionType=="mailGoogleSheets" ) :
+      dataTxt = targetUrl
+      sendMail(src, headObj, headTxt, dataTxt, footTxt)
+    #
+
+  else :
+
+    rs = cur.fetchall();  ## cur.close();  print(rs);
+    rowCount = len(rs);  ## print( rowCount )
+
+    if ( headObj.get('sendNoData',False) and rowCount==0 ) :
+
+      print("==No Record Found==\n")
+
+    else :
+
+      contentType='plain'; dataTxt=""; attachment=None;
+
+      if rowCount==0 :
+        dataTxt = "\n==No Record Found==\n"
+      elif (actionType=="mailHTML") :
+        contentType = 'html'
+        dataTxt = "<br><br>" + rs2html(cur, rs) + "<br><br>"
+      elif (actionType=="mailFile") :
+        attachment = src + ".csv";  saveRScsv(cur, rs, attachment, True);
+        attachment = [attachment]
+        dataTxt = "" 
+      else :
+        dataTxt = rs2txt(cur, rs, -1)
+      #
+
+      sendMail(src, headObj, headTxt, dataTxt, footTxt, contentType, attachment)
+
+    #
+
+  #
+
+  try   : cur.close(); 
+  except: pass;
+  cn.close()
+#
+
 ########################################################################
 
-if (src=="-") :
-  sql = "".join(sys.stdin.readlines())
-else :
-  data = getData(src)
-  src = data[0];  sql = data[1].strip();
-#
-
-headObj = {};  headTxt = "";  footTxt = "";
-
-if sql.startswith("/*"):
-  p = sql.index("*/")
-  headTxt = sql[2:p]
-  try :
-    import json; headObj=json.loads(headTxt)
-    headTxt = ""
-  except:
-    headObj = {}
-  #
-  if 'body' in headObj and len(headObj['body'])>0 : headTxt=headObj['body']
-  sql = sql[p+2:].strip()
-#
-
-actionType = headObj.get('action', defAction)
-targetUrl = headObj.get('targetUrl', defTarget)
-targetOption = headObj.get('targetOption', defOption)
-connection_string =  parseConnectionString(headObj['connection_string']) if ('connection_string' in headObj) else getConnectionString(sys.argv, 2)
-
-#print(src);
-#print(headTxt);
-#print(headObj.get('x'));
-print(connection_string);  ## quit();
-print("\n"+sql+"\n");
-
-googleSheetsSvc = None;  fileId = "";  gid = 0;  target = "";
-if actionType.endswith("GoogleSheets") :
-  if ( targetUrl.startswith('https://docs.google.com/spreadsheets/') ) :
-    m = targetUrl.split("/");  m9=m[-1]
-    if ("#" in m9) or ("=" in m9) :
-      fileId = m[-2]
-      p = m9.find("gid=")
-      if (p >= 0) :
-        gid = int(m9[p+4:])
-      #
-    elif (m9=="") :
-      fileId = m[-2]
-    else : 
-      fileId = m9
-    #
-  else :
-    printV(
-      "Unsupported targetUrl:\n" + targetUrl + "\n\n"
-      + ">targetUrl must be in the below format:\n"
-      + "> https://docs.google.com/spreadsheets/...\n"
-    );
+def main(argv) :
+  src = ( argv[1] if (len(argv)>1) else "" );  # [ternary operator] value_when_true if condition else value_when_false
+  if (src == "/?") :
+    print("usage: sql+.py [source [connection_string]]");
     quit();
   #
 
-  credentials = getGoogleCredentials()
-  googleSheetsSvc = connectGoogleSheets(credentials)
-  target = getWorkSheetTitle(googleSheetsSvc, fileId, gid)
-  printV(target)
-
-  if (target is None or len(target) < 1) :
-    print("Invalid target!")
-    quit()
-  #
-#
-
-if connection_string.startswith("[sqlite3]") :
-  import sqlite3;  cn = sqlite3.connect(connection_string[9:])
-  #print(sqlite3.version_info)
-elif connection_string.startswith("postgresql") :
-  ## python -m pip install --upgrade psycopg2
-  import psycopg2;  cn = psycopg2.connect(connection_string)
-  #print(cn.dsn)
-elif connection_string.startswith("Driver=") :
-  ## python -m pip install --upgrade pyodbc
-  import pyodbc;  cn = pyodbc.connect(connection_string)
-  #print( pyodbc.version )
-else :
-  ## python -m pip install --upgrade cx_Oracle ## http://cx-oracle.readthedocs.io/en/latest/installation.html
-  import cx_Oracle;  cn = cx_Oracle.connect(connection_string);
-  #print(cn.version)
-#
-
-cur = cn.cursor();  cur.execute(sql)
-
-if ( actionType=="stdout" ) :
-
-  printV( rs2txt(cur, cur.fetchall(), -1) )
-
-elif ( actionType.endswith("GoogleSheets") ) :
-
-  printV( exportRs2GoogleSheets(googleSheetsSvc, fileId, gid, target, targetOption, cur) )
-
-  if ( actionType=="mailGoogleSheets" ) :
-    dataTxt = targetUrl
-    sendMail(src, headObj, headTxt, dataTxt, footTxt)
-  #
-
-else :
-
-  rs = cur.fetchall();  ## cur.close();  print(rs);
-  rowCount = len(rs);  ## print( rowCount )
-
-  if ( headObj.get('sendNoData',False) and rowCount==0 ) :
-
-    print("==No Record Found==\n")
-
+  if (src=="-") :
+    sql = "".join(sys.stdin.readlines())
   else :
-
-    contentType='plain'; dataTxt=""; attachment=None;
-
-    if rowCount==0 :
-      dataTxt = "\n==No Record Found==\n"
-    elif (actionType=="mailHTML") :
-      contentType = 'html'
-      dataTxt = "<br><br>" + rs2html(cur, rs) + "<br><br>"
-    elif (actionType=="mailFile") :
-      attachment = src + ".csv";  saveRScsv(cur, rs, attachment, True);
-      attachment = [attachment]
-      dataTxt = "" 
-    else :
-      dataTxt = rs2txt(cur, rs, -1)
-    #
-
-    sendMail(src, headObj, headTxt, dataTxt, footTxt, contentType, attachment)
-
+    data = getData(src)
+    src = data[0];  sql = data[1].strip();
   #
 
+  headObj = {};  headTxt = "";  footTxt = "";
+
+  if sql.startswith("/*"):
+    p = sql.index("*/")
+    headTxt = sql[2:p]
+    try :
+      import json; headObj=json.loads(headTxt)
+      headTxt = ""
+    except:
+      headObj = {}
+    #
+    if 'body' in headObj and len(headObj['body'])>0 : headTxt=headObj['body']
+    sql = sql[p+2:].strip()
+  #
+
+  #print(src);
+  #print(headTxt);
+  #print(headObj.get('x'));
+  print("\n"+sql+"\n");
+
+  connection_string =  parseConnectionString(headObj['connection_string']) if ('connection_string' in headObj) else getConnectionString(argv, 2)
+  print(connection_string);  ## quit();
+
+  takeAction(connection_string, sql, src, headObj, headTxt, footTxt)
 #
 
-try   : cur.close(); 
-except: pass;
-
-cn.close()
+if __name__ == '__main__':
+  main(sys.argv)
+#
 
 #__DATA__
 # /* {
