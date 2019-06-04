@@ -88,6 +88,42 @@ def getConnectionString(argv, idx) :
 
 #----------------------------------------------------------------------#
 
+def runDbmsOutput(connection_string, plsql):
+  plsql = plsql.strip()
+
+  import re 
+  if not re.match('^begin\s', plsql, re.M|re.IGNORECASE):
+    plsql = "begin " + plsql + " end;"
+  #
+  print("\n"+plsql+"\n");
+
+  ## python -m pip install --upgrade cx_Oracle ## http://cx-oracle.readthedocs.io/en/latest/installation.html
+  import cx_Oracle;  cn = cx_Oracle.connect(connection_string);
+  #print(cn.version)
+
+  cur = cn.cursor();  cur.callproc("dbms_output.enable", (None,)) # or explicit integer size
+
+  cur.execute(plsql)
+  lineVar = cur.var(cx_Oracle.STRING)
+  statusVar = cur.var(cx_Oracle.NUMBER)
+
+  output = ""
+  while True:
+    cur.callproc("dbms_output.get_line", (lineVar, statusVar))
+    if statusVar.getvalue() != 0: break
+    # printV( lineVar.getvalue() )
+    output = output + lineVar.getvalue() + "\n"
+  #
+
+  try   : cur.close(); 
+  except: pass;
+  cn.close()
+
+  return output.strip()
+#
+
+#----------------------------------------------------------------------#
+
 def saveOutput(output, filepath, overwrite):
   with open(filepath, "w", newline="\n") as fout:
     fout.write(output)
@@ -152,25 +188,10 @@ def sendMail(src, headObj, headTxt, dataTxt, footTxt, contentType='plain', attac
 #----------------------------------------------------------------------#
 
 def takeAction(connection_string, plsql, src, headObj, headTxt, footTxt) :
+
+  output = runDbmsOutput(connection_string, plsql)
+
   actionType = headObj.get('action', defAction)
-
-  ## python -m pip install --upgrade cx_Oracle ## http://cx-oracle.readthedocs.io/en/latest/installation.html
-  import cx_Oracle;  cn = cx_Oracle.connect(connection_string);
-  #print(cn.version)
-
-  cur = cn.cursor();  cur.callproc("dbms_output.enable", (None,)) # or explicit integer size
-
-  cur.execute("begin " + plsql + " end;")
-  lineVar = cur.var(cx_Oracle.STRING)
-  statusVar = cur.var(cx_Oracle.NUMBER)
-  output = ""
-  while True:
-    cur.callproc("dbms_output.get_line", (lineVar, statusVar))
-    if statusVar.getvalue() != 0: break
-    # printV( lineVar.getvalue() )
-    output = output + lineVar.getvalue() + "\n"
-  #
-  output = output.strip()
 
   if ( actionType=="stdout" ) :
 
@@ -205,9 +226,6 @@ def takeAction(connection_string, plsql, src, headObj, headTxt, footTxt) :
 
   #
 
-  try   : cur.close(); 
-  except: pass;
-  cn.close()
 #
 
 ########################################################################
