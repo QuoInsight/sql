@@ -363,7 +363,7 @@ def exportRs2GoogleSheets(googleSheetsSvc, fileId, gid, target, action, cur) :
   return insertRs2GoogleSheets(googleSheetsSvc, fileId, target, cur, includeHeaders, insertDataOption)
 #
 
-def getGoogleSheetsTarget(actionType, targetUrl) :
+def getGoogleSheetsTarget(targetUrl) :
   googleSheetsSvc = None;  fileId = "";  gid = 0;  target = "";
   if actionType.endswith("GoogleSheets") :
     if ( targetUrl.startswith('https://docs.google.com/spreadsheets/') ) :
@@ -410,7 +410,7 @@ def takeAction(connection_string, sql, src, headObj, headTxt, footTxt) :
 
   googleSheetsSvc = None;  fileId = "";  gid = 0;  target = "";
   if actionType.endswith("GoogleSheets") :
-    (googleSheetsSvc, fileId, gid, target) = getGoogleSheetsTarget(actionType, targetUrl)
+    (googleSheetsSvc, fileId, gid, target) = getGoogleSheetsTarget(targetUrl)
   #
 
   cn = connectDB(connection_string);  cur = cn.cursor();  cur.execute(sql)
