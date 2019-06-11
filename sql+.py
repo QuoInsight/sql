@@ -312,7 +312,7 @@ def deleteAllRows(googleSheetsSvc, fileId, gid, clearValuesOnly=False) :
   return result
 #
 
-def insertRows2GoogleSheets(googleSheetsSvc, fileId, target, dataRows, insertDataOption) :
+def insertRows2GoogleSheets(googleSheetsSvc, fileId, targetRange, dataRows, insertDataOption) :
   ## [ https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/append ]
   if (insertDataOption is not None and insertDataOption.upper()=="OVERWRITE") :
     insertDataOption = "OVERWRITE"
@@ -320,14 +320,14 @@ def insertRows2GoogleSheets(googleSheetsSvc, fileId, target, dataRows, insertDat
     insertDataOption = "INSERT_ROWS"
   #
   return googleSheetsSvc.spreadsheets().values().append(
-    spreadsheetId=fileId, range=target,
+    spreadsheetId=fileId, range=targetRange,
     valueInputOption='USER_ENTERED', insertDataOption=insertDataOption,
-    body={"range": target, "majorDimension": "ROWS", "values": dataRows}
+    body={"range": targetRange, "majorDimension": "ROWS", "values": dataRows}
   ).execute()
 #
 
 import datetime
-def insertRs2GoogleSheets(googleSheetsSvc, fileId, target, cur, includeHeaders, insertDataOption) :
+def insertRs2GoogleSheets(googleSheetsSvc, fileId, targetRange, cur, includeHeaders, insertDataOption) :
   dataRows = []
   if (includeHeaders) :
     thisRow = []
@@ -346,10 +346,10 @@ def insertRs2GoogleSheets(googleSheetsSvc, fileId, target, cur, includeHeaders, 
     dataRows.append(thisRow)
   #
   printV("totalRows: " + str(len(dataRows)))
-  return insertRows2GoogleSheets(googleSheetsSvc, fileId, target, dataRows, insertDataOption)
+  return insertRows2GoogleSheets(googleSheetsSvc, fileId, targetRange, dataRows, insertDataOption)
 #
 
-def exportRs2GoogleSheets(googleSheetsSvc, fileId, gid, target, action, cur) :
+def exportRs2GoogleSheets(googleSheetsSvc, fileId, gid, targetRange, action, cur) :
   includeHeaders = False;
   insertDataOption = "INSERT_ROWS"
   if (action=="REFRESH") :
@@ -360,11 +360,11 @@ def exportRs2GoogleSheets(googleSheetsSvc, fileId, gid, target, action, cur) :
     includeHeaders = True;
     insertDataOption = "OVERWRITE"
   #
-  return insertRs2GoogleSheets(googleSheetsSvc, fileId, target, cur, includeHeaders, insertDataOption)
+  return insertRs2GoogleSheets(googleSheetsSvc, fileId, targetRange, cur, includeHeaders, insertDataOption)
 #
 
 def getGoogleSheetsTarget(targetUrl) :
-  googleSheetsSvc = None;  fileId = "";  gid = 0;  target = "";
+  googleSheetsSvc = None;  fileId = "";  gid = 0;  targetSheet = "";
   if actionType.endswith("GoogleSheets") :
     if ( targetUrl.startswith('https://docs.google.com/spreadsheets/') ) :
       m = targetUrl.split("/");  m9=m[-1]
@@ -390,15 +390,15 @@ def getGoogleSheetsTarget(targetUrl) :
 
     credentials = getGoogleCredentials()
     googleSheetsSvc = connectGoogleSheets(credentials)
-    target = getWorkSheetTitle(googleSheetsSvc, fileId, gid)
-    printV(target)
+    targetSheet = getWorkSheetTitle(googleSheetsSvc, fileId, gid)
+    printV(targetSheet)
 
-    if (target is None or len(target) < 1) :
+    if (targetSheet is None or len(targetSheet) < 1) :
       print("Invalid target!")
       quit()
     #
   #
-  return (googleSheetsSvc, fileId, gid, target)
+  return (googleSheetsSvc, fileId, gid, targetSheet)
 #
 
 #----------------------------------------------------------------------#
@@ -410,7 +410,7 @@ def takeAction(connection_string, sql, src, headObj, headTxt, footTxt) :
 
   googleSheetsSvc = None;  fileId = "";  gid = 0;  target = "";
   if actionType.endswith("GoogleSheets") :
-    (googleSheetsSvc, fileId, gid, target) = getGoogleSheetsTarget(targetUrl)
+    (googleSheetsSvc, fileId, gid, targetSheet) = getGoogleSheetsTarget(targetUrl)
   #
 
   cn = connectDB(connection_string);  cur = cn.cursor();  cur.execute(sql)
@@ -421,7 +421,7 @@ def takeAction(connection_string, sql, src, headObj, headTxt, footTxt) :
 
   elif ( actionType.endswith("GoogleSheets") ) :
 
-    printV( exportRs2GoogleSheets(googleSheetsSvc, fileId, gid, target, targetOption, cur) )
+    printV( exportRs2GoogleSheets(googleSheetsSvc, fileId, gid, targetSheet, targetOption, cur) )
 
     if ( actionType=="mailGoogleSheets" ) :
       dataTxt = targetUrl
