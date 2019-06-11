@@ -365,38 +365,36 @@ def exportRs2GoogleSheets(googleSheetsSvc, fileId, gid, targetRange, action, cur
 
 def getGoogleSheetsTarget(targetUrl) :
   googleSheetsSvc = None;  fileId = "";  gid = 0;  targetSheet = "";
-  if actionType.endswith("GoogleSheets") :
-    if ( targetUrl.startswith('https://docs.google.com/spreadsheets/') ) :
-      m = targetUrl.split("/");  m9=m[-1]
-      if ("#" in m9) or ("=" in m9) :
-        fileId = m[-2]
-        p = m9.find("gid=")
-        if (p >= 0) :
-          gid = int(m9[p+4:])
-        #
-      elif (m9=="") :
-        fileId = m[-2]
-      else : 
-        fileId = m9
+  if ( targetUrl.startswith('https://docs.google.com/spreadsheets/') ) :
+    m = targetUrl.split("/");  m9=m[-1]
+    if ("#" in m9) or ("=" in m9) :
+      fileId = m[-2]
+      p = m9.find("gid=")
+      if (p >= 0) :
+        gid = int(m9[p+4:])
       #
-    else :
-      printV(
-        "Unsupported targetUrl:\n" + targetUrl + "\n\n"
-        + ">targetUrl must be in the below format:\n"
-        + "> https://docs.google.com/spreadsheets/...\n"
-      );
-      quit();
+    elif (m9=="") :
+      fileId = m[-2]
+    else : 
+      fileId = m9
     #
+  else :
+    printV(
+      "Unsupported targetUrl:\n" + targetUrl + "\n\n"
+      + ">targetUrl must be in the below format:\n"
+      + "> https://docs.google.com/spreadsheets/...\n"
+    );
+    quit();
+  #
 
-    credentials = getGoogleCredentials()
-    googleSheetsSvc = connectGoogleSheets(credentials)
-    targetSheet = getWorkSheetTitle(googleSheetsSvc, fileId, gid)
-    printV(targetSheet)
+  credentials = getGoogleCredentials()
+  googleSheetsSvc = connectGoogleSheets(credentials)
+  targetSheet = getWorkSheetTitle(googleSheetsSvc, fileId, gid)
+  printV(targetSheet)
 
-    if (targetSheet is None or len(targetSheet) < 1) :
-      print("Invalid target!")
-      quit()
-    #
+  if (targetSheet is None or len(targetSheet) < 1) :
+    print("Invalid target!")
+    quit()
   #
   return (googleSheetsSvc, fileId, gid, targetSheet)
 #
@@ -408,7 +406,7 @@ def takeAction(connection_string, sql, src, headObj, headTxt, footTxt) :
   targetUrl = headObj.get('targetUrl', defTarget)
   targetOption = headObj.get('targetOption', defOption)
 
-  googleSheetsSvc = None;  fileId = "";  gid = 0;  target = "";
+  googleSheetsSvc = None;  fileId = "";  gid = 0;  targetSheet = "";
   if actionType.endswith("GoogleSheets") :
     (googleSheetsSvc, fileId, gid, targetSheet) = getGoogleSheetsTarget(targetUrl)
   #
