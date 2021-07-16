@@ -18,3 +18,29 @@
     END LOOP;
     RETURN l_str;
   END;
+
+  FUNCTION encBase16 (
+    p_number NUMBER
+  ) RETURN VARCHAR2 IS
+    l_basechars VARCHAR2(16) DEFAULT '0123456789ABCDEF';
+    l_numericPlaces NUMBER;
+    l_skipStart NUMBER;
+    l_skipEnd NUMBER;
+    l_str VARCHAR2(240);
+  BEGIN
+    l_numericPlaces := 2;
+    l_skipStart := Power(10,l_numericPlaces);
+    l_skipEnd := 10*Power(16,l_numericPlaces-1);
+    Dbms_Output.put_line('skipped number: '||l_skipStart||'..'||(l_skipEnd-1));
+    Dbms_Output.put_line('skipped base16: ..'||number2BaseX(l_skipEnd-1,l_basechars));
+    IF p_number>=0 AND p_number<l_skipStart THEN
+      l_str := To_Char(p_number);
+    ELSE
+      l_str := number2BaseX(p_number-l_skipStart+l_skipEnd, l_basechars);
+    END IF;
+    IF Length(l_str)<l_numericPlaces THEN
+      l_str := LPad(l_str,l_numericPlaces,'0');
+    END IF;
+    RETURN l_str;
+  END;
+
