@@ -9,7 +9,10 @@
   BEGIN
     l_number := p_number;
     l_base := Length(p_basechars);
-    Dbms_Output.put_line(l_base);
+    --Dbms_Output.put_line(l_base);
+    IF l_number=0 THEN
+      RETURN SubStr(p_basechars, 1, 1);
+    END IF;
     l_str := '';
     WHILE (l_number > 0) LOOP
       l_mod := Mod(l_number, l_base);
