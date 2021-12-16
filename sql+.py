@@ -10,6 +10,8 @@ def printV(v) :
   print( s )
 #
 
+import re
+
 #----------------------------------------------------------------------#
 
 def getData(src) :
@@ -50,7 +52,6 @@ def parseConnectionString(str) :
     import os
     l_str = os.environ.get(l_str[1:], l_str)
   else :
-    import re
     matchObj = re.match( r'(\S+)\/(\S+)@(\S+):(\S+):(\S+)', l_str, re.M|re.I )
     if ( matchObj and len(matchObj.groups())==5 ) :
       l_str = ( matchObj.group(1) + "/" + matchObj.group(2)
@@ -108,6 +109,36 @@ def connectDB(connection_string) :
     #print(cn.version)
   #
   return cn
+#
+
+#----------------------------------------------------------------------#
+
+def runDbmsOutput(cn, plsql):
+  plsql = plsql.strip()
+
+  if not re.match('^begin\s', plsql, re.M|re.IGNORECASE):
+    plsql = "begin " + plsql + " end;"
+  #
+  #print("\n"+plsql+"\n");
+
+  import cx_Oracle
+  cur = cn.cursor();  cur.callproc("dbms_output.enable", (None,)) # or explicit integer size
+
+  cur.execute(plsql)
+  lineVar = cur.var(cx_Oracle.STRING)
+  statusVar = cur.var(cx_Oracle.NUMBER)
+
+  output = ""
+  while True:
+    cur.callproc("dbms_output.get_line", (lineVar, statusVar))
+    if statusVar.getvalue() != 0: break
+    # printV( lineVar.getvalue() )
+    output = output + lineVar.getvalue() + "\n"
+  #
+
+  try   : cur.close(); 
+  except: pass;
+  return output.strip()
 #
 
 #----------------------------------------------------------------------#
@@ -411,7 +442,23 @@ def takeAction(connection_string, sql, src, headObj, headTxt, footTxt) :
     (googleSheetsSvc, fileId, gid, targetSheet) = getGoogleSheetsTarget(targetUrl)
   #
 
-  cn = connectDB(connection_string);  cur = cn.cursor();  cur.execute(sql)
+  cn = connectDB(connection_string);
+
+  sql = sql.strip();
+  if re.match('^begin\s', sql, re.M|re.IGNORECASE):
+    tmpArr = re.compile('\s+end;\n\s*/\s*\n', re.M|re.IGNORECASE).split(sql)
+    plsql = tmpArr[0] + "\nend;"
+    printV( "\n[PLSQL]\n" + plsql + "\n");
+
+    output = runDbmsOutput(cn, plsql);
+    printV( output + "\n" );
+
+    sql = tmpArr[1].strip()
+  #
+  sql = re.compile(';$').sub('', sql)
+  print("\n[SQL]\n"+sql+"\n");
+
+  cur = cn.cursor();  cur.execute(sql)
 
   if ( actionType=="stdout" ) :
 
@@ -497,7 +544,7 @@ def main(argv) :
   #print(src);
   #print(headTxt);
   #print(headObj.get('x'));
-  print("\n"+sql+"\n");
+  #print("\n"+sql+"\n");
 
   connection_string =  parseConnectionString(headObj['connection_string']) if ('connection_string' in headObj) else getConnectionString(argv, 2)
   print(connection_string);  ## quit();
@@ -519,6 +566,8 @@ if __name__ == '__main__':
 #   "sendNoData": false
 # } */
 #
+# begin dbms_output.put_line(sysdate); end;
+# /
 # select sysdate, a.*, 10000 from dual a where 1=0
 #
 #__DATA__
