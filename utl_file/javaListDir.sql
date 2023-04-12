@@ -2,10 +2,10 @@
 -- create global temporary table XXX_DIR_LIST_TMP ( FILENAME VARCHAR2(255) ) on commit preserve rows;
 -- grant ALL on XXX_DIR_LIST_TMP to PUBLIC;
 
-create or replace and compile java source named "XXX_DirList" as
+create or replace and compile java source named "xxx_DirList" as
   import java.io.*;
   import java.sql.*;
-  public class XXX_DirList {
+  public class xxx_DirList {
     public static void getList(String directory) throws SQLException {
       File dir = new File( directory );
       String[] files = dir.list();
@@ -20,7 +20,7 @@ create or replace and compile java source named "XXX_DirList" as
 
 CREATE OR REPLACE PROCEDURE XXX_dir_list(
   pi_directory IN VARCHAR2
-) AS LANGUAGE JAVA name 'XXX_DirList.getList(java.lang.String)';
+) AS LANGUAGE JAVA name 'xxx_DirList.getList(java.lang.String)';
 
 
 exec XXX_dir_list( '???' );
