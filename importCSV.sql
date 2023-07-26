@@ -33,6 +33,22 @@ DECLARE
 
   /*------------------------------------------------------------------*/
 
+  FUNCTION splitX(p_list varchar2, p_del varchar2 := ',')
+  RETURN t_arr IS
+    l_regex VARCHAR2(50) := '[^'||p_del||']+'; -- [^,]+
+    l_arr t_arr := t_arr(); /*must initialize if not declared as INDEX BY PLS_INTEGER*/
+  BEGIN
+    FOR c1 IN (
+      with t AS (select p_list from dual)
+      select regexp_substr(p_list, l_regex, 1, rownum) v
+      from t connect by level <= length(regexp_replace(p_list, l_regex))+1
+    ) LOOP
+      --Dbms_Output.put_line(c1.v);
+      l_arr.extend; l_arr(l_arr.Count) := c1.v;
+    END LOOP;
+    RETURN l_arr;
+  END;
+
   FUNCTION split(p_list varchar2, p_del varchar2 := ',')
   RETURN t_arr IS
     i        NUMBER := 0;
