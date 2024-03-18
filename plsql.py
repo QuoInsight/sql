@@ -199,7 +199,7 @@ def takeAction(connection_string, plsql, src, headObj, headTxt, footTxt) :
 
   else :
 
-    if ( headObj.get('sendNoData',False) and len(output)==0 ) :
+    if ( len(output)==0 and headObj.get('sendNoData',False)==False ) :
 
       print("==output is blank==\n")
 
