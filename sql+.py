@@ -478,8 +478,8 @@ def takeAction(connection_string, sql, src, headObj, headTxt, footTxt) :
     rs = cur.fetchall();  ## cur.close();  print(rs);
     rowCount = len(rs);  ## print( rowCount )
 
-    if ( headObj.get('sendNoData',False) and rowCount==0 ) :
-
+    if ( rowCount==0 and headObj.get('sendNoData',False)==False ) :
+      
       print("==No Record Found==\n")
 
     else :
