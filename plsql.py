@@ -58,7 +58,7 @@ def parseConnectionString(str) :
               + matchObj.group(5) + ")))"
               )
     else :
-      matchObj = re.match( r'.*Data Source=(.+);User ID=(\S+);Password=(\S+);?', l_str, re.M|re.I )
+      matchObj = re.match( r'.*(?:Data Source|DBQ)=(.+?);User ID=(\S+);Password=(\S+);?', l_str, re.M|re.I )
       #if matchObj : print("\n** " + repr(len(matchObj.groups())) + "\n");
       if ( matchObj and len(matchObj.groups())==3 ) :
         l_str = matchObj.group(2) + "/" + matchObj.group(3) + "@" + matchObj.group(1)
