@@ -11,6 +11,14 @@
     os.path.dirname(__file__), os.pardir, "sql+.py"
   )))
 
+  #--------------
+  SQLp = importlib.machinery.SourceFileLoader(
+    'SQLp', os.path.abspath(os.path.join(
+      os.path.dirname(__file__), os.pardir, "sql+.py"
+    ))
+  ).load_module()  ## exec(open(SQLp).read()) ## execfile()
+  #--------------
+
   data = SQLp.getData(src)
   connection_string =  SQLp.parseConnectionString(headObj['connection_string']) if ('connection_string' in headObj) else SQLp.getConnectionString(sys.argv, 1)
   SQLp.saveRScsv(cur, rs, attachment, True);
