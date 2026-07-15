@@ -1,5 +1,19 @@
 # -*- coding: utf-8 -*-
 
+"""
+  import os
+  SQLp = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, "sql+.py"))
+
+  import importlib.machinery
+  SQLp = importlib.machinery.SourceFileLoader('SQLp',SQLp).load_module()  ## exec(open(SQLp).read()) ## execfile()
+
+  data = SQLp.getData(src)
+  connection_string =  SQLp.parseConnectionString(headObj['connection_string']) if ('connection_string' in headObj) else SQLp.getConnectionString(sys.argv, 1)
+  SQLp.saveRScsv(cur, rs, attachment, True);
+  SQLp.sendMail(src, headObj, headTxt, dataTxt, footTxt, contentType, attachment)
+  (googleSheetsSvc, fileId, gid, targetSheet) = SQLp.getGoogleSheetsTarget(targetUrl)
+"""
+
 defAction = "mailFile" ## stdout|mailText|mailHTML|mailFile|updateGoogleSheets|mailGoogleSheets
 defTarget = "https://docs.google.com/spreadsheets/d/fileId/edit#gid=0"
 defOption = "REFRESH" ## REFRESH|OVERWRITE|INSERT_ROWS
