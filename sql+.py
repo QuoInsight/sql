@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-  import os
-  SQLp = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, "sql+.py"))
-
   import importlib.machinery
-  SQLp = importlib.machinery.SourceFileLoader('SQLp',SQLp).load_module()  ## exec(open(SQLp).read()) ## execfile()
+  def importSourceFile(filepath) :
+    return importlib.machinery.SourceFileLoader('customModule_', filepath).load_module()
+  # importSourceFile
+
+  import os  ## import pyFile_basename as SQLp
+  SQLp = importSourceFile(os.path.abspath(os.path.join(
+    os.path.dirname(__file__), os.pardir, "sql+.py"
+  )))
 
   data = SQLp.getData(src)
   connection_string =  SQLp.parseConnectionString(headObj['connection_string']) if ('connection_string' in headObj) else SQLp.getConnectionString(sys.argv, 1)
